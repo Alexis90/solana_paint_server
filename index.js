@@ -2,7 +2,8 @@ const express = require('express');
 const { Server } = require('socket.io');
 require('dotenv').config();
 
-const socketHandler = require('./socket')
+const socketHandler = require('./socket');
+const balanceWorker = require('./worker');
 
 
 const app = express();
@@ -12,10 +13,12 @@ const io = new Server(server);
 app.use(express.json());
 
 app.get('/', (req, res) => {
-    res.status(200).json({ data: 'Paint Server Backend running' });
-  });
+  res.status(200).json({ data: 'Paint Server Backend running' });
+});
 
-socketHandler(io)
+socketHandler(io);
+
+balanceWorker();
 
 app.use('/api', require('./routes/index'));
 

@@ -1,5 +1,5 @@
 const knex = require('knex');
-const config = require('./config');
+const config = require('../pg/config');
 
 let postgres;
 

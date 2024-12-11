@@ -1,4 +1,4 @@
-const postgres = require('../pg/postgres');
+const postgres = require('../loaders/postgres');
 
 exports.getPixels = async () => {
   const query = postgres('pixel_state').select({
