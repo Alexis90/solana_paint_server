@@ -1,11 +1,12 @@
 const { Connection, PublicKey } = require('@solana/web3.js');
+require('dotenv').config({ path: '../.env' });
 
 const SOLANA_RPC_URL =
   process.env.APP_ENV === 'development'
     ? 'https://api.devnet.solana.com'
     : 'https://api.mainnet-beta.solana.com';
 
-const TOKEN_MINT_ADDRESS = '';
+const TOKEN_MINT_ADDRESS = process.env.TOKEN_MINT_ADDRESS;
 
 const connection = new Connection(SOLANA_RPC_URL);
 

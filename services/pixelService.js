@@ -5,6 +5,7 @@ exports.getPixels = async () => {
     id: 'id',
     x: 'x',
     y: 'y',
+    color: 'color',
     createdAt: 'created_at',
     walletAddress: 'wallet_address',
   });
@@ -12,10 +13,12 @@ exports.getPixels = async () => {
 };
 
 exports.insertPixels = async (data) => {
-  return postgres('pixel_state').insert({
-    'x': data.x,
-    'y': data.y,
-    'color': data.color,
-    'wallet_address': data.walletAddress
-  }).returning('id');
+  return postgres('pixel_state')
+    .insert({
+      x: data.x,
+      y: data.y,
+      color: data.color,
+      wallet_address: data.walletAddress,
+    })
+    .returning('id');
 };

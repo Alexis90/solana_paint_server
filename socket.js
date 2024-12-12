@@ -8,37 +8,40 @@ const PIXELS_PER_TOKEN = process.env.PIXELS_PER_TOKEN;
 
 module.exports = (io) => {
   io.on('connection', async (socket) => {
-    const { walletAddress } = socket.handshake.query;
+    let walletAddress;
 
-    try {
-      const historicalUsage = await accountService.getHistoricalPixelUsage(
-        walletAddress
-      );
+    socket.on('connectWallet', async (data) => {
+      walletAddress = data.walletAddress;
 
-      const totalPixelUsed = historicalUsage ? historicalUsage.pixelUsed : 0;
+      try {
+        const historicalUsage = await accountService.getHistoricalPixelUsage(
+          walletAddress
+        );
 
-      const balance = await web3Service.getTokenBalance(walletAddress);
+        const totalPixelUsed = historicalUsage ? historicalUsage.pixelUsed : 0;
 
-      const availablePixels = balance * PIXELS_PER_TOKEN - totalPixelUsed;
+        const balance = await web3Service.getTokenBalance(walletAddress);
 
-      if (availablePixels <= 0) {
-        socket.emit('error', { error: 'Insufficient tokens to draw pixels' });
+        const availablePixels = balance * PIXELS_PER_TOKEN - totalPixelUsed;
+
+        if (availablePixels <= 0) {
+          socket.emit('error', { error: 'Insufficient tokens to draw pixels' });
+          socket.disconnect();
+          return;
+        }
+
+        await redisClient.hSet(walletAddress, {
+          socketId: socket.id,
+          balance,
+          availablePixels,
+          pixelDrawn: 0,
+        });
+      } catch (error) {
+        console.log(`Error connecting user ${walletAddress}:`, error.message);
+        socket.emit('error', { error: 'Failed to verify token balance.' });
         socket.disconnect();
-        return;
       }
-
-      await redisClient.hSet(walletAddress, {
-        socketId: socket.id,
-        historicalUsage,
-        balance,
-        availablePixels,
-        pixelDrawn: 0,
-      });
-    } catch (error) {
-      console.log(`Error connecting user ${walletAddress}:`, error.message);
-      socket.emit('error', { error: 'Failed to verify token balance.' });
-      socket.disconnect();
-    }
+    });
 
     socket.on('drawPixel', async (data) => {
       try {

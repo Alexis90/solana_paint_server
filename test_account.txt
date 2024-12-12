@@ -1,0 +1,9 @@
+wallet
+Wrote new keypair to /Users/alexisw/my-keypair.json
+=======================================================================================
+pubkey: 53qWQbc5Tjv9VgtesHtcmyvpyXiM4wonXYpw7tgAqen
+=======================================================================================
+
+token address: 8YfzHEgKqvP4gbBM7mvSFJ2h6QV61gGgWimD2cZ6jnHk
+
+account that holds the token: 4Zph26q39aSwd2AYdSPXKRdjUD7FW7uHztsAmtMsc75p
