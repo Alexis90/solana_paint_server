@@ -1,1 +1,21 @@
-{"name":"solana-paint-server","scripts":{"start":"nodemon ./index.js","test":"react-scripts test"},"dependencies":{"@solana/web3.js":"^1.95.8","cors":"^2.8.5","dotenv":"^16.4.7","express":"^4.21.2","knex":"^3.1.0","pg":"^8.13.1","redis":"^4.7.0","socket.io":"^4.8.1","sqlite3":"^5.1.7"},"devDependencies":{"nodemon":"^3.1.7"}}
+{
+  "name": "solana-paint-server",
+  "scripts": {
+    "start": "nodemon ./index.js",
+    "migrate": "knex migrate:latest --knexfile='./pg/config.js'"
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.95.8",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "knex": "^3.1.0",
+    "pg": "^8.13.1",
+    "redis": "^4.7.0",
+    "socket.io": "^4.8.1",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
+  }
+}

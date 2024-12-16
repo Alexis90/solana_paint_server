@@ -1,42 +1,51 @@
 const redisClient = require('./loaders/redis');
+const postgres = require('./loaders/postgres');
 const web3Service = require('./services/web3Service');
 require('dotenv').config();
 
-const PIXELS_PER_TOKEN = process.env.PIXELS_PER_TOKEN;
+const PIXELS_KEY = 'pixelsToSave';
+const IS_HOLDER_CHECK_INTERVAL = 60 * 60 * 1000; // 1 hour in ms
+const BATCH_INSERT_INTERVAL = 5 * 60 * 1000; // 5 minutes in ms
+const BATCH_SIZE = 100; // Number of pixels to process in each batch
 
-async function verifyActiveUsers() {
-  const activeUsers = await redisClient.keys('*');
-
-  for (const walletAddress of activeUsers) {
-    try {
-      const user = await redisClient.hGetAll(walletAddress);
-      const balance = await web3Service.getTokenBalance(walletAddress);
-
-      const availablePixels =
-        balance * PIXELS_PER_TOKEN - user.pixelDrawn;
-
-      if (availablePixels <= 0) {
-        const socket = global.io.sockets.sockets.get(user.socketId);
-        if (socket) {
-          socket.emit('error', {
-            message: 'Insufficient tokens to continue drawing.',
-          });
-        }
-        await redisClient.hSet(walletAddress, { balance, availablePixels: 0 });
-      } else {
-        await redisClient.hSet(walletAddress, { balance, availablePixels });
+async function updateIsHolder() {
+  try {
+    // Fetch all wallet addresses stored in Redis
+    const keys = await redisClient.keys('wallet-*');
+    for (const walletAddress of keys) {
+      const user = await redisClient.hGet(walletAddress);
+      if (user) {
+        const walletAddress = walletKey.split('-')[1]; // Extract wallet address
+        const balance = await web3Service.getTokenBalance(walletAddress);
+        const isHolder = balance > 0;
+        await redisClient.hSet(walletKey, { isHolder });
       }
-    } catch (error) {
-      console.error(
-        `Error verifying balance for ${walletAddress}:`,
-        error.message
-      );
     }
+    console.log('Updated isHolder status for all wallets.');
+  } catch (error) {
+    console.error('Error updating isHolder status:', error);
   }
 }
 
-// interval: every 10 mins
+async function bactInsertPixels() {
+  try {
+    const pixels = await redisClient.lRange(PIXELS_KEY, 0, BATCH_SIZE - 1);
+    if (pixels.length === 0) return;
+
+    const parsedPixels = pixels.map((pixel) => JSON.parse(pixel));
+
+    await postgres.batchInsert('pixel_state', parsedPixels, BATCH_SIZE);
+
+    await redisClient.lTrim(PIXELS_KEY, pixels.length, -1);
+
+    console.log(`Inserted ${pixels.length} pixels into PostgreSQL.`);
+  } catch (error) {
+    console.error('Error inserting pixels into PostgreSQL:', error);
+  }
+}
+
 module.exports = () => {
   console.log('Balance worker started...');
-  setInterval(verifyActiveUsers, 10 * 60 * 1000);
+  setInterval(updateIsHolder, IS_HOLDER_CHECK_INTERVAL);
+  setInterval(bactInsertPixels, BATCH_INSERT_INTERVAL);
 };

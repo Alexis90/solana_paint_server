@@ -1,43 +1,30 @@
 const redisClient = require('./loaders/redis');
-const pixelService = require('./services/pixelService');
-const accountService = require('./services/accountService');
 const web3Service = require('./services/web3Service');
-require('dotenv').config();
 
-const PIXELS_PER_TOKEN = process.env.PIXELS_PER_TOKEN;
+const PIXELS_KEY = 'pixelsToSave';
 
 module.exports = (io) => {
   io.on('connection', async (socket) => {
-    let walletAddress;
-
     socket.on('connectWallet', async (data) => {
-      walletAddress = data.walletAddress;
+      let isHolder;
 
       try {
-        const historicalUsage = await accountService.getHistoricalPixelUsage(
-          walletAddress
-        );
-
-        const totalPixelUsed = historicalUsage ? historicalUsage.pixelUsed : 0;
-
-        const balance = await web3Service.getTokenBalance(walletAddress);
-
-        const availablePixels = balance * PIXELS_PER_TOKEN - totalPixelUsed;
-
-        if (availablePixels <= 0) {
-          socket.emit('error', { error: 'Insufficient tokens to draw pixels' });
-          socket.disconnect();
-          return;
+        const balance = await web3Service.getTokenBalance(data.walletAddress);
+        if (balance > 0) {
+          isHolder = true;
+        } else {
+          isHolder = false;
         }
-
-        await redisClient.hSet(walletAddress, {
-          socketId: socket.id,
-          balance,
-          availablePixels,
-          pixelDrawn: 0,
+        await redisClient.hSet(`wallet-${data.walletAddress}`, {
+          isHolder,
         });
+
+        console.log(`${data.walletAddress} connected.`);
       } catch (error) {
-        console.log(`Error connecting user ${walletAddress}:`, error.message);
+        console.log(
+          `Error connecting user ${data.walletAddress}:`,
+          error.message
+        );
         socket.emit('error', { error: 'Failed to verify token balance.' });
         socket.disconnect();
       }
@@ -45,40 +32,37 @@ module.exports = (io) => {
 
     socket.on('drawPixel', async (data) => {
       try {
-        // retrieve player
-        const account = await redisClient.hGetAll(walletAddress);
-
-        if (!account || account?.availablePixels <= 0) {
-          socket.emit('error', { error: 'Insufficient tokens to draw pixels' });
-          socket.disconnect();
-          return;
-        }
-
-        await redisClient.hSet(walletAddress, {
-          pixelDrawn: account.pixelDrawn + 1,
-          availablePixels: account.availablePixels - 1,
+        socket.broadcast.emit('pixelUpdated', {
+          x: data.x,
+          y: data.y,
+          color: data.color,
         });
-        await pixelService.insertPixels(data);
-        socket.broadcast.emit('pixelUpdated', data);
+
+        const user = await redisClient.hGet(`wallet-${data.walletAddress}`);
+
+        if (user && user.isHolder) {
+          const pixelData = {
+            x: data.x,
+            y: data.y,
+            color: data.color,
+            wallet_address: data.walletAddress,
+            created_at: new Date().toISOString(),
+          };
+          await redisClient.rPush(PIXELS_KEY, JSON.stringify(pixelData));
+        }
       } catch (error) {
+        console.error('Failed to process drawPixel:', error);
         socket.emit('error', { error: 'Failed to update pixel' });
       }
     });
 
-    socket.on('disconnect', async () => {
+    socket.on('disconnect', async (data) => {
       try {
-        const account = await redisClient.hGet(walletAddress);
-
-        if (account) {
-          await accountService.persistAccount(
-            walletAddress,
-            +account.pixelDrawn
-          );
-          await redisClient.del(walletAddress);
-        }
+        const user = await redisClient.hGet(data.walletAddress);
+        if (user) await redisClient.del(data.walletAddress);
       } catch (error) {
         console.error(
-          `Error disconnecting user ${walletAddress}:`,
+          `Error disconnecting user ${data.walletAddress}:`,
           error.message
         );
       }

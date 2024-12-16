@@ -1,14 +1,11 @@
 const { Connection, PublicKey } = require('@solana/web3.js');
 require('dotenv').config({ path: '../.env' });
 
-const SOLANA_RPC_URL =
-  process.env.APP_ENV === 'development'
-    ? 'https://api.devnet.solana.com'
-    : 'https://api.mainnet-beta.solana.com';
-
 const TOKEN_MINT_ADDRESS = process.env.TOKEN_MINT_ADDRESS;
 
-const connection = new Connection(SOLANA_RPC_URL);
+const connection = new Connection(process.env.SOLANA_RPC_URL);
+
+const decimals = 9;
 
 exports.getTokenBalance = async (walletAddress) => {
   try {
@@ -20,10 +17,12 @@ exports.getTokenBalance = async (walletAddress) => {
       }
     );
 
-    const balance = tokenAccounts.value.reduce((acc, accountInfo) => {
+    let balance = tokenAccounts.value.reduce((acc, accountInfo) => {
       const amount = accountInfo.account.data.parsed.info.tokenAmount.uiAmount;
       return acc + amount;
     }, 0);
+
+    balance = Number(balance) / 10 ** decimals;
 
     return balance;
   } catch (error) {

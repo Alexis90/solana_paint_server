@@ -1,0 +1,50 @@
+version: '3.9'
+
+services:
+  backend:
+    build:
+      context: .
+    container_name: solana-paint-server
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - .:/usr/src/app # For development, overridden in production
+    networks:
+      - app-network
+    ports:
+      - '8000:3000'
+
+  postgres:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DATABASE}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - '8001:5432'
+    networks:
+      - app-network
+    env_file:
+      - .env
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  app-network:
+    driver: bridge

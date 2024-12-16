@@ -4,7 +4,7 @@ const config = require('../pg/config');
 let postgres;
 
 try {
-  postgres = knex(config[process.env.APP_ENV]);
+  postgres = knex(config[process.env.NODE_ENV]);
 
   postgres.on('query-error', (error, obj) => {
     console.log(error.message);
