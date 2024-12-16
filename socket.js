@@ -2,6 +2,7 @@ const redisClient = require('./loaders/redis');
 const web3Service = require('./services/web3Service');
 
 const PIXELS_KEY = 'pixelsToSave';
+const REDIS_EXPIRATION_TIME = 4 * 60 * 60; // 4HOUSE
 
 module.exports = (io) => {
   io.on('connection', async (socket) => {
@@ -15,9 +16,13 @@ module.exports = (io) => {
         } else {
           isHolder = false;
         }
-        await redisClient.hSet(`wallet-${data.walletAddress}`, {
-          isHolder,
-        });
+        await redisClient.set(
+          `wallet-${data.walletAddress}`,
+          isHolder.toString(),
+          {
+            EX: REDIS_EXPIRATION_TIME, // Expire after 1 hour (3600 seconds)
+          }
+        );
 
         console.log(`${data.walletAddress} connected.`);
       } catch (error) {
@@ -25,7 +30,9 @@ module.exports = (io) => {
           `Error connecting user ${data.walletAddress}:`,
           error.message
         );
-        socket.emit('error', { error: 'Failed to verify token balance.' });
+        socket.emit('error', {
+          message: 'Failed to connect wallet, please retry',
+        });
         socket.disconnect();
       }
     });
@@ -38,12 +45,12 @@ module.exports = (io) => {
           color: data.color,
         });
 
-        const user = await redisClient.hGet(`wallet-${data.walletAddress}`);
+        const user = await redisClient.get(`wallet-${data.walletAddress}`);
 
-        if (user && user.isHolder) {
+        if (user) {
           const pixelData = {
-            x: data.x,
-            y: data.y,
+            x: data.x.toString(),
+            y: data.y.toString(),
             color: data.color,
             wallet_address: data.walletAddress,
             created_at: new Date().toISOString(),
@@ -52,20 +59,12 @@ module.exports = (io) => {
         }
       } catch (error) {
         console.error('Failed to process drawPixel:', error);
-        socket.emit('error', { error: 'Failed to update pixel' });
+        socket.emit('error', { message: 'Failed to update pixel' });
       }
     });
 
-    socket.on('disconnect', async (data) => {
-      try {
-        const user = await redisClient.hGet(data.walletAddress);
-        if (user) await redisClient.del(data.walletAddress);
-      } catch (error) {
-        console.error(
-          `Error disconnecting user ${data.walletAddress}:`,
-          error.message
-        );
-      }
+    socket.on('disconnect', async () => {
+      console.log('A user disconnected');
     });
   });
 };

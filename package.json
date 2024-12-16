@@ -2,7 +2,8 @@
   "name": "solana-paint-server",
   "scripts": {
     "start": "nodemon ./index.js",
-    "migrate": "knex migrate:latest --knexfile='./pg/config.js'"
+    "migrate": "knex migrate:latest --knexfile='./pg/config.js'",
+    "unmigrate": "knex migrate:rollback --knexfile='./pg/config.js'"
   },
   "dependencies": {
     "@solana/web3.js": "^1.95.8",

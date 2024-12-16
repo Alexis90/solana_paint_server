@@ -13,12 +13,12 @@ async function updateIsHolder() {
     // Fetch all wallet addresses stored in Redis
     const keys = await redisClient.keys('wallet-*');
     for (const walletAddress of keys) {
-      const user = await redisClient.hGet(walletAddress);
+      const user = await redisClient.get(walletAddress);
       if (user) {
         const walletAddress = walletKey.split('-')[1]; // Extract wallet address
         const balance = await web3Service.getTokenBalance(walletAddress);
         const isHolder = balance > 0;
-        await redisClient.hSet(walletKey, { isHolder });
+        await redisClient.set(walletKey, isHolder.toString());
       }
     }
     console.log('Updated isHolder status for all wallets.');
